@@ -239,7 +239,7 @@ public class HttpFuzzerResultsTableModel
         return headers;
     }
 
-    static class FuzzResultTableEntry extends DefaultHistoryReferencesTableEntry {
+    public static class FuzzResultTableEntry extends DefaultHistoryReferencesTableEntry {
 
         private final long taskId;
         private final String type;

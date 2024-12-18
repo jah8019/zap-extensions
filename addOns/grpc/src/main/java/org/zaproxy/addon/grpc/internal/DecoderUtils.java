@@ -168,7 +168,7 @@ public class DecoderUtils {
         return protobufNestedMessageDecoder.decode(stringBytes);
     }
 
-    static byte[] splitMessageBodyAndStatusCode(byte[] encodedText)
+    public static byte[] splitMessageBodyAndStatusCode(byte[] encodedText)
             throws UnsupportedEncodingException {
         String encodedString = new String(encodedText, StandardCharsets.UTF_8);
 
