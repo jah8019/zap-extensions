@@ -17,6 +17,16 @@ zapAddOn {
                     }
                 }
             }
+            register("org.zaproxy.addon.grpc.internal.fuzz.ExtensionGrpcFuzz") {
+                classnames {
+                    allowed.set(listOf("org.zaproxy.addon.grpc.internal.fuzz"))
+                }
+                dependencies {
+                    addOns {
+                        register("fuzz")
+                    }
+                }
+            }
         }
     }
 }
@@ -31,6 +41,7 @@ crowdin {
 
 dependencies {
     zapAddOn("websocket")
+    zapAddOn("fuzz")
     testImplementation(project(":testutils"))
     implementation("io.grpc:grpc-protobuf:1.61.1")
 
