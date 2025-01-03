@@ -37,6 +37,7 @@ import org.zaproxy.zap.model.Target;
 public class ClientMap extends SortedTreeModel implements EventPublisher {
 
     public static final String MAP_NODE_ADDED_EVENT = "client.mapNode.added";
+    public static final String MAP_COMPONENT_ADDED_EVENT = "client.mapComponent.added";
     public static final String DEPTH_KEY = "depth";
     public static final String SIBLINGS_KEY = "siblings";
     public static final String URL_KEY = "url";
@@ -48,7 +49,7 @@ public class ClientMap extends SortedTreeModel implements EventPublisher {
     public ClientMap(ClientNode root) {
         super(root);
         this.root = root;
-        ZAP.getEventBus().registerPublisher(this, MAP_NODE_ADDED_EVENT);
+        ZAP.getEventBus().registerPublisher(this, MAP_NODE_ADDED_EVENT, MAP_COMPONENT_ADDED_EVENT);
     }
 
     @Override
@@ -164,8 +165,48 @@ public class ClientMap extends SortedTreeModel implements EventPublisher {
         boolean componentAdded = details.addComponent(component);
         if (!wasVisited || componentAdded) {
             details.setVisited(true);
+
+            Map<String, String> map = new HashMap<>(component.getData());
+            map.put(DEPTH_KEY, Integer.toString(node.getLevel()));
+            map.put(SIBLINGS_KEY, Integer.toString(node.getChildCount()));
+            ZAP.getEventBus()
+                    .publishSyncEvent(
+                            this, new Event(this, MAP_COMPONENT_ADDED_EVENT, new Target(), map));
         }
         return componentAdded;
+    }
+
+    public ClientNode setRedirect(String originalUrl, String redirectedUrl) {
+        ClientNode node = getNode(originalUrl, false, false);
+        if (node != null) {
+            node.getUserObject().setRedirect(true);
+            node.getUserObject().setVisited(true);
+            node.getUserObject()
+                    .addComponent(
+                            new ClientSideComponent(
+                                    Map.of(),
+                                    ClientSideComponent.REDIRECT,
+                                    null,
+                                    originalUrl,
+                                    redirectedUrl,
+                                    ClientSideComponent.REDIRECT,
+                                    null,
+                                    null,
+                                    -1));
+            return node;
+        }
+        LOGGER.debug("setRedirect, no node for URL {}", originalUrl);
+        return null;
+    }
+
+    public ClientNode setVisited(String url) {
+        ClientNode node = getNode(url, false, false);
+        if (node != null && !node.getUserObject().isVisited()) {
+            node.getUserObject().setVisited(true);
+            return node;
+        }
+        LOGGER.debug("setVisited, no node for URL or already visited {}", url);
+        return null;
     }
 }
 

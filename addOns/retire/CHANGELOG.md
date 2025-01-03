@@ -5,7 +5,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## Unreleased
 ### Changed
+- Updated with upstream retire.js pattern changes.
 - Update minimum ZAP version to 2.16.0.
+
+## [0.43.0] - 2024-12-23
+### Fixed
+- An issue that was resulting in False Positives.
+
+### Changed
+- Updated with upstream retire.js pattern changes.
 - The scan rule now uses a more specific CWE (Issue 8732).
 
 ## [0.42.0] - 2024-11-25
@@ -228,6 +236,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Changed
 - First release.
 
+[0.43.0]: https://github.com/zaproxy/zap-extensions/releases/retire-v0.43.0
 [0.42.0]: https://github.com/zaproxy/zap-extensions/releases/retire-v0.42.0
 [0.41.0]: https://github.com/zaproxy/zap-extensions/releases/retire-v0.41.0
 [0.40.0]: https://github.com/zaproxy/zap-extensions/releases/retire-v0.40.0

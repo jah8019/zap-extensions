@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Unreleased
 ### Changed
 - Update minimum ZAP version to 2.16.0.
+
+## [0.19.0] - 2024-12-23
+### Changed
 - Configure the logging to prevent verbose log messages when using BC JSSE provider.
 - Improve error handling on client's unknown CA TLS alert.
 - Report available TLS providers when failed to query the TLS/SSL protocol versions.
@@ -212,6 +215,7 @@ would not be cleared when reusing the same message.
   - Options panel to manage the root CA certificate and issued certificates.
   - API endpoints to configure the validity of the root CA certificate and issued certificates ([Issue 4673](https://github.com/zaproxy/zaproxy/issues/4673)).
 
+[0.19.0]: https://github.com/zaproxy/zap-extensions/releases/network-v0.19.0
 [0.18.0]: https://github.com/zaproxy/zap-extensions/releases/network-v0.18.0
 [0.17.0]: https://github.com/zaproxy/zap-extensions/releases/network-v0.17.0
 [0.16.0]: https://github.com/zaproxy/zap-extensions/releases/network-v0.16.0
