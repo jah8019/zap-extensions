@@ -19,6 +19,7 @@
  */
 package org.zaproxy.addon.grpc.internal.fuzz;
 
+import org.parosproxy.paros.Constant;
 import org.parosproxy.paros.network.HttpMessage;
 import org.zaproxy.addon.grpc.internal.EncoderUtils;
 import org.zaproxy.addon.grpc.internal.InvalidProtobufFormatException;
@@ -30,18 +31,18 @@ import org.zaproxy.addon.grpc.internal.ProtoBufMessageEncoder;
 import java.io.IOException;
 import java.util.Base64;
 
-public class GrpcProcessor implements HttpFuzzerMessageProcessor {
+public class GrpcMessageProcessor implements HttpFuzzerMessageProcessor {
 
-    public static final String NAME = "A toll, grpc";
+    public static final String NAME = "Grpc Decoder";
             //ToDo:
             //Constant.messages.getString(
             //        "fuzz.httpfuzzer.processor.requestContentLengthUpdater.name");
 
-    private static GrpcProcessor instance;
+    private static GrpcMessageProcessor instance;
 
     private final String method;
 
-    public static GrpcProcessor getInstance() {
+    public static GrpcMessageProcessor getInstance() {
         if (instance == null) {
             createInstance();
         }
@@ -50,15 +51,15 @@ public class GrpcProcessor implements HttpFuzzerMessageProcessor {
 
     private static synchronized void createInstance() {
         if (instance == null) {
-            instance = new GrpcProcessor();
+            instance = new GrpcMessageProcessor();
         }
     }
 
-    public GrpcProcessor() {
+    public GrpcMessageProcessor() {
         this(null);
     }
 
-    public GrpcProcessor(String method) {
+    public GrpcMessageProcessor(String method) {
         this.method = method;
     }
 

@@ -19,7 +19,6 @@
  */
 package org.zaproxy.addon.grpc.internal.fuzz;
 
-import org.parosproxy.paros.Constant;
 import org.parosproxy.paros.network.HttpMessage;
 import org.zaproxy.zap.extension.fuzz.httpfuzzer.AbstractHttpFuzzerMessageProcessorUIPanel;
 import org.zaproxy.zap.extension.fuzz.httpfuzzer.HttpFuzzerMessageProcessorUI;
@@ -27,15 +26,13 @@ import org.zaproxy.zap.extension.fuzz.httpfuzzer.HttpFuzzerMessageProcessorUIHan
 
 import javax.swing.JPanel;
 
-public class GrpcProcessorUIHandler
+public class GrpcMessageProcessorUIHandler
         implements HttpFuzzerMessageProcessorUIHandler<
-        GrpcProcessor, GrpcProcessorUIHandler.GrpcProcessorUI> {
+        GrpcMessageProcessor, GrpcMessageProcessorUIHandler.GrpcProcessorUI> {
 
     @Override
     public String getName() {
-        return "Toll Toll Grpc";
-        // ToDo:
-        //return GrpcProcessor.NAME;
+        return GrpcMessageProcessor.NAME;
     }
 
     @Override
@@ -59,8 +56,8 @@ public class GrpcProcessorUIHandler
     }
 
     @Override
-    public Class<GrpcProcessor> getFuzzerMessageProcessorType() {
-        return GrpcProcessor.class;
+    public Class<GrpcMessageProcessor> getFuzzerMessageProcessorType() {
+        return GrpcMessageProcessor.class;
     }
 
     @Override
@@ -74,7 +71,7 @@ public class GrpcProcessorUIHandler
     }
 
     public static class GrpcProcessorUI
-            implements HttpFuzzerMessageProcessorUI<GrpcProcessor> {
+            implements HttpFuzzerMessageProcessorUI<GrpcMessageProcessor> {
 
         public static final GrpcProcessorUI INSTANCE =
                 new GrpcProcessorUI();
@@ -83,7 +80,7 @@ public class GrpcProcessorUIHandler
 
         @Override
         public String getName() {
-            return GrpcProcessor.NAME;
+            return GrpcMessageProcessor.NAME;
         }
 
         @Override
@@ -93,13 +90,15 @@ public class GrpcProcessorUIHandler
 
         @Override
         public String getDescription() {
-            return Constant.messages.getString(
-                    "fuzz.httpfuzzer.processor.requestContentLengthUpdater.description");
+            return "Must be before content length update.";
+            //TODO
+            //  return Constant.messages.getString(
+            //          "fuzz.httpfuzzer.processor.requestContentLengthUpdater.description");
         }
 
         @Override
-        public GrpcProcessor getFuzzerMessageProcessor() {
-            return GrpcProcessor.getInstance();
+        public GrpcMessageProcessor getFuzzerMessageProcessor() {
+            return GrpcMessageProcessor.getInstance();
         }
 
         @Override
@@ -110,9 +109,9 @@ public class GrpcProcessorUIHandler
 
     public static class GrpcProcessorUIPanel
             extends AbstractHttpFuzzerMessageProcessorUIPanel<
-            GrpcProcessor, GrpcProcessorUI> {
+            GrpcMessageProcessor, GrpcProcessorUI> {
 
-        private JPanel fieldsPanel;
+        private final JPanel fieldsPanel;
 
         public GrpcProcessorUIPanel() {
             fieldsPanel = new JPanel();

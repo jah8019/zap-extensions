@@ -1,21 +1,35 @@
 package org.zaproxy.addon.grpc.internal.fuzz;
 
 import java.awt.Component;
+import java.io.UnsupportedEncodingException;
+import java.util.Base64;
 import java.util.List;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
+import org.parosproxy.paros.Constant;
+import org.parosproxy.paros.network.HttpHeader;
 import org.parosproxy.paros.network.HttpMessage;
 import org.parosproxy.paros.view.View;
+import org.zaproxy.addon.grpc.internal.DecoderUtils;
 import org.zaproxy.addon.grpc.internal.ProtoBufMessageDecoder;
 import org.zaproxy.zap.extension.httppanel.Message;
+import org.zaproxy.zap.extension.httppanel.view.impl.models.http.request.RequestBodyStringHttpPanelViewModel;
 import org.zaproxy.zap.extension.httppanel.view.syntaxhighlight.AutoDetectSyntaxHttpPanelTextArea;
 import org.zaproxy.zap.extension.httppanel.view.syntaxhighlight.ContentSplitter;
 import org.zaproxy.zap.extension.httppanel.view.syntaxhighlight.HttpPanelSyntaxHighlightTextArea;
 import org.zaproxy.zap.extension.httppanel.view.syntaxhighlight.HttpPanelSyntaxHighlightTextView;
+import org.zaproxy.zap.extension.httppanel.view.util.CaretVisibilityEnforcerOnFocusGain;
+import org.zaproxy.zap.extension.search.SearchMatch;
 import org.zaproxy.zap.model.DefaultTextHttpMessageLocation;
 import org.zaproxy.zap.model.HttpMessageLocation;
 import org.zaproxy.zap.model.MessageLocation;
 import org.zaproxy.zap.model.TextHttpMessageLocation;
+import org.zaproxy.zap.utils.DisplayUtils;
 import org.zaproxy.zap.view.messagecontainer.http.SelectableContentHttpMessageContainer;
 import org.zaproxy.zap.view.messagelocation.MessageLocationHighlight;
 import org.zaproxy.zap.view.messagelocation.MessageLocationHighlightsManager;
@@ -23,182 +37,99 @@ import org.zaproxy.zap.view.messagelocation.MessageLocationProducerFocusListener
 import org.zaproxy.zap.view.messagelocation.MessageLocationProducerFocusListenerAdapter;
 import org.zaproxy.zap.view.messagelocation.TextMessageLocationHighlight;
 import org.zaproxy.zap.view.messagelocation.TextMessageLocationHighlightsManager;
-import org.zaproxy.zap.extension.search.SearchMatch;
 
 @SuppressWarnings("serial")
 public class GrpcRequestBodyPanelSyntaxHighlightTextView extends HttpPanelSyntaxHighlightTextView
         implements SelectableContentHttpMessageContainer {
 
-    public static final String NAME = "GrpcRequestBodySyntaxTextView";
+    public static final String NAME = "HttpRequestBodySyntaxTextView";
 
     private MessageLocationProducerFocusListenerAdapter focusListenerAdapter;
     private ContentSplitter contentSplitter;
 
-    public GrpcRequestBodyPanelSyntaxHighlightTextView(GrpcRequestBodyStringHttpPanelViewModel model) {
+    public GrpcRequestBodyPanelSyntaxHighlightTextView(RequestBodyStringHttpPanelViewModel model) {
         super(model);
+
 
         getHttpPanelTextArea()
                 .setComponentPopupMenu(
                         new CustomPopupMenu() {
-                            private static final long serialVersionUID = 1L;
+
+                            private static final long serialVersionUID = -426000345249750052L;
 
                             @Override
                             public void show(Component invoker, int x, int y) {
                                 if (!getHttpPanelTextArea().isFocusOwner()) {
                                     getHttpPanelTextArea().requestFocusInWindow();
                                 }
-                                View.getSingleton().getPopupMenu().show(
-                                        GrpcRequestBodyPanelSyntaxHighlightTextView.this,
-                                        x, y);
+
+                                View.getSingleton()
+                                        .getPopupMenu()
+                                        .show(
+                                                GrpcRequestBodyPanelSyntaxHighlightTextView.this,
+                                                x,
+                                                y);
                             }
                         });
+    }
+
+    @Override
+    protected HttpRequestBodyPanelSyntaxHighlightTextArea getHttpPanelTextArea() {
+        return (HttpRequestBodyPanelSyntaxHighlightTextArea) super.getHttpPanelTextArea();
     }
 
     @Override
     protected HttpPanelSyntaxHighlightTextArea createHttpPanelTextArea() {
         contentSplitter = new ContentSplitter(getMainPanel());
         HttpPanelSyntaxHighlightTextArea textArea =
-                new GrpcRequestBodyPanelSyntaxHighlightTextArea(contentSplitter);
-
+                new HttpRequestBodyPanelSyntaxHighlightTextArea(contentSplitter);
         contentSplitter.setTextArea(textArea);
         return textArea;
     }
 
     @Override
-    public String getName() {
-        return NAME;
-    }
-
-    @Override
-    public Class<HttpMessage> getMessageClass() {
-        return HttpMessage.class;
-    }
-
-    @Override
-    public Class<? extends MessageLocation> getMessageLocationClass() {
-        return TextHttpMessageLocation.class;
-    }
-
-    @Override
-    public MessageLocation getSelection() {
-
-        //ToDo:
-        return  new DefaultTextHttpMessageLocation(HttpMessageLocation.Location.REQUEST_BODY, 0);
-    }
-
-
-    @Override
-    public MessageLocationHighlight highlight(MessageLocation location) {
-        if (!supports(location)) {
-            return null;
-        }
-        TextHttpMessageLocation textLocation = (TextHttpMessageLocation) location;
-        return null;
-    }
-
-    @Override
-    public MessageLocationHighlight highlight(MessageLocation location, MessageLocationHighlight highlight) {
-        if (!supports(location) || !(highlight instanceof TextMessageLocationHighlight)) {
-            return null;
-        }
-        TextHttpMessageLocation textLocation = (TextHttpMessageLocation) location;
-        TextMessageLocationHighlight textHighlight = (TextMessageLocationHighlight) highlight;
-        return null; // getHttpPanelTextArea().highlightImpl(textLocation, textHighlight);
-    }
-
-    @Override
-    public void removeHighlight(MessageLocation location, MessageLocationHighlight highlightReference) {
-        if (!(highlightReference instanceof TextMessageLocationHighlight)) {
-            return;
-        }
-        getHttpPanelTextArea()
-                .removeHighlight(((TextMessageLocationHighlight) highlightReference).getHighlightReference());
-    }
-
-    @Override
-    public boolean supports(MessageLocation location) {
-        //TODO
-//        if (!(location instanceof TextHttpMessageLocation)) {
-//            return false;
-//        }
-//        return ((TextHttpMessageLocation) location).getLocation()
-//                == TextHttpMessageLocation.Location.REQUEST_BODY;
-        return true;
-    }
-
-    @Override
-    public boolean supports(Class<? extends MessageLocation> classLocation) {
-        return (TextHttpMessageLocation.class.isAssignableFrom(classLocation));
-    }
-
-    @Override
-    public void addFocusListener(MessageLocationProducerFocusListener focusListener) {
-        getFocusListenerAdapter().addFocusListener(focusListener);
-    }
-
-    @Override
-    public void removeFocusListener(MessageLocationProducerFocusListener focusListener) {
-        getFocusListenerAdapter().removeFocusListener(focusListener);
-
-        if (!getFocusListenerAdapter().hasFocusListeners()) {
-            getHttpPanelTextArea().removeFocusListener(focusListenerAdapter);
-            focusListenerAdapter = null;
-        }
-    }
-
-    @Override
-    public MessageLocationHighlightsManager create() {
-        return null;
-    }
-
-    @Override
-    public HttpMessage getMessage() {
-        return (HttpMessage) getHttpPanelTextArea().getMessage();
-    }
-
-    @Override
-    public Component getComponent() {
-        return getHttpPanelTextArea();
-    }
-
-    @Override
-    public boolean isEmpty() {
-        return getHttpPanelTextArea().getMessage() == null;
-    }
-
-    private MessageLocationProducerFocusListenerAdapter getFocusListenerAdapter() {
-        if (focusListenerAdapter == null) {
-            focusListenerAdapter = new MessageLocationProducerFocusListenerAdapter(this);
-            getHttpPanelTextArea().addFocusListener(focusListenerAdapter);
-        }
-        return focusListenerAdapter;
-    }
-
-    @Override
     protected void setModelData(String data) {
-        // Hier wäre der Ort, an dem wir den gRPC-Body verarbeiten können,
-        // bevor er angezeigt wird.
-        // TODO: gRPC Decoding der im Model enthaltenen Daten (falls nötig)
         super.setModelData(contentSplitter.process(data));
     }
 
-    private static class GrpcRequestBodyPanelSyntaxHighlightTextArea extends AutoDetectSyntaxHttpPanelTextArea {
+    private static class HttpRequestBodyPanelSyntaxHighlightTextArea
+            extends AutoDetectSyntaxHttpPanelTextArea {
 
-        private static final long serialVersionUID = 1L;
+        private static final Logger LOGGER = LogManager.getLogger(GrpcRequestBodyPanelSyntaxHighlightTextView.class);
 
-        private static ProtoBufMessageDecoder decoder;
+        private static final long serialVersionUID = -2102275261139781996L;
 
-        private static CustomTokenMakerFactory tokenMakerFactory = null;
+        private static final String X_WWW_FORM_URLENCODED =
+                Constant.messages.getString("http.panel.view.syntaxtext.syntax.xWwwFormUrlencoded");
+        private static final String JAVASCRIPT =
+                Constant.messages.getString("http.panel.view.syntaxtext.syntax.javascript");
+        private static final String JSON =
+                Constant.messages.getString("http.panel.view.syntaxtext.syntax.json");
+        private static final String XML =
+                Constant.messages.getString("http.panel.view.syntaxtext.syntax.xml");
+
+        private static final String SYNTAX_STYLE_X_WWW_FORM = "application/x-www-form-urlencoded";
+
+        private static RequestBodyTokenMakerFactory tokenMakerFactory = null;
+
         private final ContentSplitter contentSplitter;
 
-        public GrpcRequestBodyPanelSyntaxHighlightTextArea(ContentSplitter contentSplitter) {
+        private CaretVisibilityEnforcerOnFocusGain caretVisibilityEnforcer;
+
+        private final ProtoBufMessageDecoder decoder;
+
+        public HttpRequestBodyPanelSyntaxHighlightTextArea(ContentSplitter contentSplitter) {
             this.contentSplitter = contentSplitter;
 
-            decoder = new ProtoBufMessageDecoder();
-            // Falls du eigene Syntax-Stile für gRPC einführen möchtest,
-            // kannst du sie hier registrieren.
+            addSyntaxStyle(X_WWW_FORM_URLENCODED, SYNTAX_STYLE_X_WWW_FORM);
+            addSyntaxStyle(JAVASCRIPT, SyntaxConstants.SYNTAX_STYLE_JAVASCRIPT);
+            addSyntaxStyle(JSON, SyntaxConstants.SYNTAX_STYLE_JSON);
+            addSyntaxStyle(XML, SyntaxConstants.SYNTAX_STYLE_XML);
+
+            caretVisibilityEnforcer = new CaretVisibilityEnforcerOnFocusGain(this);
 
             setCodeFoldingAllowed(true);
+            decoder = new ProtoBufMessageDecoder();
         }
 
         @Override
@@ -208,34 +139,33 @@ public class GrpcRequestBodyPanelSyntaxHighlightTextView extends HttpPanelSyntax
 
         @Override
         public HttpMessage getMessage() {
-            var message = (HttpMessage) super.getMessage();
-
-            if (message == null)
-                return null;
-
-            decoder.decode(message.getRequestBody().getBytes());
-            return message;
+            return (HttpMessage) super.getMessage();
         }
 
         @Override
         public void setMessage(Message aMessage) {
-            // Wenn wir gRPC-spezifische Änderungen am Message-Objekt vornehmen müssen,
-            // könnten wir das hier tun.
-            // TODO: gRPC Decoding falls notwendig, bevor die Nachricht dargestellt wird.
 
-            if (aMessage != null) {
-                decoder.decode(((HttpMessage) aMessage).getRequestBody().getBytes());
-                ((HttpMessage) aMessage).setRequestBody(decoder.getDecodedOutput());
+            if(aMessage instanceof HttpMessage msg) {
+                if(isValidGrpcMessage(msg)){
+                    try
+                    {
+                        byte[] body =
+                                DecoderUtils.splitMessageBodyAndStatusCode(msg.getRequestBody().getBytes());
+                        body = Base64.getDecoder().decode(body);
+                        byte[] payload = DecoderUtils.extractPayload(body);
+                        decoder.decode(payload);
+                        var output =  decoder.getDecodedOutput();
+                        msg.setRequestBody(output);
+//                        msg.getResponseBody().setBody(output);
+                    } catch (UnsupportedEncodingException | IllegalArgumentException e) {
+                        LOGGER.warn("Error decoding the Response Body: {}", e.getMessage());
+                    }
+                }
             }
-            super.setMessage(aMessage);
-        }
 
-        @Override
-        protected String detectSyntax(HttpMessage httpMessage) {
-            // Hier kannst du entscheiden, ob du überhaupt Syntax-Highlighting für gRPC machst.
-            // Da gRPC oft binär und nicht textbasiert ist, ist hier evtl. nur Base64 oder Hex sinnvoll.
-            // Wir lassen es einfach leer oder geben einen Standard zurück.
-            return httpMessage.getResponseBody().toString();
+            super.setMessage(aMessage);
+
+            caretVisibilityEnforcer.setEnforceVisibilityOnFocusGain(aMessage != null);
         }
 
         protected MessageLocation getSelection() {
@@ -255,7 +185,9 @@ public class GrpcRequestBodyPanelSyntaxHighlightTextView extends HttpPanelSyntax
 
         protected MessageLocationHighlight highlightImpl(
                 TextHttpMessageLocation textLocation, TextMessageLocationHighlight textHighlight) {
-            textHighlight.setHighlightReference(highlight(textLocation.getStart(), textLocation.getEnd(), textHighlight));
+            textHighlight.setHighlightReference(
+                    highlight(textLocation.getStart(), textLocation.getEnd(), textHighlight));
+
             return textHighlight;
         }
 
@@ -283,16 +215,171 @@ public class GrpcRequestBodyPanelSyntaxHighlightTextView extends HttpPanelSyntax
         }
 
         @Override
+        protected String detectSyntax(HttpMessage httpMessage) {
+            String syntax = null;
+            if (httpMessage != null) {
+                String contentType =
+                        httpMessage.getRequestHeader().getHeader(HttpHeader.CONTENT_TYPE);
+                if (contentType != null && !contentType.isEmpty()) {
+                    contentType = contentType.toLowerCase(Locale.ENGLISH);
+                    final int pos = contentType.indexOf(';');
+                    if (pos != -1) {
+                        contentType = contentType.substring(0, pos).trim();
+                    }
+                    if (contentType.contains("javascript")) {
+                        syntax = SyntaxConstants.SYNTAX_STYLE_JAVASCRIPT;
+                    } else if (contentType.contains("json")) {
+                        syntax = SyntaxConstants.SYNTAX_STYLE_JSON;
+                    } else if (contentType.contains("xml")) {
+                        syntax = SyntaxConstants.SYNTAX_STYLE_XML;
+                    } else {
+                        syntax = contentType;
+                    }
+                }
+            }
+            return syntax;
+        }
+
+        @Override
         protected synchronized CustomTokenMakerFactory getTokenMakerFactory() {
             if (tokenMakerFactory == null) {
-                tokenMakerFactory = new CustomTokenMakerFactory() {
-                    @Override
-                    protected void initTokenMakerMap() {
-                        // Wenn du einen speziellen TokenMaker für gRPC hättest, könntest du ihn hier registrieren.
-                    }
-                };
+                tokenMakerFactory = new RequestBodyTokenMakerFactory();
             }
             return tokenMakerFactory;
         }
+
+        private static boolean isValidGrpcMessage(HttpMessage message) {
+            var header = message.getRequestHeader();
+            var body = message.getRequestBody();
+            return header.hasContentType("application/grpc") && !body.toString().isEmpty();
+        }
+
+        private static class RequestBodyTokenMakerFactory extends CustomTokenMakerFactory {
+
+            public RequestBodyTokenMakerFactory() {
+                String pkg = "org.zaproxy.zap.extension.httppanel.view.syntaxhighlight.lexers.";
+
+                putMapping(SYNTAX_STYLE_X_WWW_FORM, pkg + "WwwFormTokenMaker");
+
+                pkg = "org.fife.ui.rsyntaxtextarea.modes.";
+                putMapping(SYNTAX_STYLE_JAVASCRIPT, pkg + "JavaScriptTokenMaker");
+                putMapping(SYNTAX_STYLE_JSON, pkg + "JsonTokenMaker");
+                putMapping(SYNTAX_STYLE_XML, pkg + "XMLTokenMaker");
+            }
+        }
+    }
+
+    @Override
+    public String getName() {
+        return NAME;
+    }
+
+    @Override
+    public Class<HttpMessage> getMessageClass() {
+        return HttpMessage.class;
+    }
+
+    @Override
+    public Class<? extends MessageLocation> getMessageLocationClass() {
+        return TextHttpMessageLocation.class;
+    }
+
+    @Override
+    public MessageLocation getSelection() {
+        return getHttpPanelTextArea().getSelection();
+    }
+
+    @Override
+    public MessageLocationHighlightsManager create() {
+        return getHttpPanelTextArea().create();
+    }
+
+    @Override
+    public MessageLocationHighlight highlight(MessageLocation location) {
+        if (!supports(location)) {
+            return null;
+        }
+        TextHttpMessageLocation textLocation = (TextHttpMessageLocation) location;
+
+        return getHttpPanelTextArea()
+                .highlightImpl(
+                        textLocation,
+                        new TextMessageLocationHighlight(DisplayUtils.getHighlightColor()));
+    }
+
+    @Override
+    public MessageLocationHighlight highlight(
+            MessageLocation location, MessageLocationHighlight highlight) {
+        if (!supports(location) || !(highlight instanceof TextMessageLocationHighlight)) {
+            return null;
+        }
+        TextHttpMessageLocation textLocation = (TextHttpMessageLocation) location;
+        TextMessageLocationHighlight textHighlight = (TextMessageLocationHighlight) highlight;
+
+        return getHttpPanelTextArea().highlightImpl(textLocation, textHighlight);
+    }
+
+    @Override
+    public void removeHighlight(
+            MessageLocation location, MessageLocationHighlight highlightReference) {
+        if (!(highlightReference instanceof TextMessageLocationHighlight)) {
+            return;
+        }
+        getHttpPanelTextArea()
+                .removeHighlight(
+                        ((TextMessageLocationHighlight) highlightReference)
+                                .getHighlightReference());
+    }
+
+    @Override
+    public boolean supports(MessageLocation location) {
+        if (!(location instanceof TextHttpMessageLocation)) {
+            return false;
+        }
+        return ((TextHttpMessageLocation) location).getLocation()
+                == TextHttpMessageLocation.Location.REQUEST_BODY;
+    }
+
+    @Override
+    public boolean supports(Class<? extends MessageLocation> classLocation) {
+        return (TextHttpMessageLocation.class.isAssignableFrom(classLocation));
+    }
+
+    @Override
+    public void addFocusListener(MessageLocationProducerFocusListener focusListener) {
+        getFocusListenerAdapter().addFocusListener(focusListener);
+    }
+
+    @Override
+    public void removeFocusListener(MessageLocationProducerFocusListener focusListener) {
+        getFocusListenerAdapter().removeFocusListener(focusListener);
+
+        if (!getFocusListenerAdapter().hasFocusListeners()) {
+            getHttpPanelTextArea().removeFocusListener(focusListenerAdapter);
+            focusListenerAdapter = null;
+        }
+    }
+
+    @Override
+    public HttpMessage getMessage() {
+        return getHttpPanelTextArea().getMessage();
+    }
+
+    @Override
+    public Component getComponent() {
+        return getHttpPanelTextArea();
+    }
+
+    @Override
+    public boolean isEmpty() {
+        return getHttpPanelTextArea().getMessage() == null;
+    }
+
+    private MessageLocationProducerFocusListenerAdapter getFocusListenerAdapter() {
+        if (focusListenerAdapter == null) {
+            focusListenerAdapter = new MessageLocationProducerFocusListenerAdapter(this);
+            getHttpPanelTextArea().addFocusListener(focusListenerAdapter);
+        }
+        return focusListenerAdapter;
     }
 }
