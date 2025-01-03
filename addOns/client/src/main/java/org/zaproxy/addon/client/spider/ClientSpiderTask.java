@@ -20,27 +20,69 @@
 package org.zaproxy.addon.client.spider;
 
 import java.time.Duration;
+import java.util.List;
+import java.util.Locale;
+import lombok.Getter;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.openqa.selenium.WebDriver;
+import org.parosproxy.paros.Constant;
+import org.zaproxy.addon.client.spider.ClientSpider.WebDriverProcess;
 
 public class ClientSpiderTask implements Runnable {
 
-    private ClientSpider clientSpider;
-    private String url;
-    private int timeout;
-    private WebDriver wd;
+    public enum Status {
+        QUEUED,
+        STOPPED,
+        PAUSED,
+        RUNNING,
+        FINISHED,
+        FAILED;
 
-    public ClientSpiderTask(ClientSpider clientSpider, String url, int timeout) {
+        @Override
+        public String toString() {
+            return Constant.messages.getString(
+                    "client.spider.task.stats." + this.name().toLowerCase(Locale.ROOT));
+        }
+    }
+
+    private static final Logger LOGGER = LogManager.getLogger(ClientSpiderTask.class);
+
+    @Getter private final int id;
+    @Getter private String displayName;
+    @Getter private String detailsString;
+    private ClientSpider clientSpider;
+    private List<SpiderAction> actions;
+    private int timeout;
+    @Getter private Status status;
+    @Getter private String error;
+
+    public ClientSpiderTask(
+            int id,
+            ClientSpider clientSpider,
+            List<SpiderAction> actions,
+            int timeout,
+            String displayName,
+            String detailsString) {
+        this.id = id;
+        this.displayName = displayName;
+        this.detailsString = detailsString;
         this.clientSpider = clientSpider;
-        this.url = url;
+        this.actions = actions;
         this.timeout = timeout;
+        this.status = Status.QUEUED;
     }
 
     @Override
     public void run() {
         if (clientSpider.isStopped()) {
+            this.status = Status.STOPPED;
+            this.clientSpider.taskStateChange(this);
             return;
         }
         while (clientSpider.isPaused()) {
+            this.status = Status.PAUSED;
+            this.clientSpider.taskStateChange(this);
             try {
                 Thread.sleep(200);
             } catch (InterruptedException e) {
@@ -49,26 +91,32 @@ public class ClientSpiderTask implements Runnable {
         }
         boolean ok = false;
         long startTime = System.currentTimeMillis();
+        this.status = Status.RUNNING;
+        this.clientSpider.taskStateChange(this);
+        WebDriverProcess wdp = null;
         try {
-            wd = this.clientSpider.getWebDriver();
+            wdp = this.clientSpider.getWebDriverProcess();
+            WebDriver wd = wdp.getWebDriver();
             startTime = System.currentTimeMillis();
             wd.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(this.timeout));
-            wd.get(url);
+            actions.forEach(e -> e.run(wd));
             ok = true;
+            this.status = Status.FINISHED;
+            this.clientSpider.taskStateChange(this);
         } catch (Exception e) {
-            clientSpider.tempLogProgress("Task failed " + url + " " + e.getMessage());
+            LOGGER.warn("Task {} failed {}", id, e.getMessage(), e);
+            this.status = Status.FAILED;
+            this.error = e.getMessage();
+            this.clientSpider.taskStateChange(this);
         }
-        if (wd != null) {
-            this.clientSpider.returnWebDriver(wd);
+        if (wdp != null) {
+            this.clientSpider.returnWebDriverProcess(wdp);
         }
-        clientSpider.tempLogProgress(
-                "Task completed "
-                        + url
-                        + " "
-                        + ok
-                        + " in "
-                        + (System.currentTimeMillis() - startTime) / 1000
-                        + " secs");
+        LOGGER.debug(
+                "Task {} completed {} in {} secs",
+                id,
+                ok,
+                (System.currentTimeMillis() - startTime) / 1000);
         this.clientSpider.postTaskExecution(this);
     }
 }

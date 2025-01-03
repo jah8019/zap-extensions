@@ -19,12 +19,22 @@
  */
 package org.zaproxy.addon.client.internal;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 import net.sf.json.JSONObject;
 import org.parosproxy.paros.Constant;
 import org.zaproxy.addon.client.ExtensionClientIntegration;
 
+@Getter
+@AllArgsConstructor
 public class ClientSideComponent {
+
+    public static String REDIRECT = "Redirect";
+
+    private final Map<String, String> data;
 
     private String tagName;
     private String id;
@@ -36,6 +46,11 @@ public class ClientSideComponent {
     private int formId = -1;
 
     public ClientSideComponent(JSONObject json) {
+        data = new HashMap<>();
+        for (Object key : json.keySet()) {
+            data.put(key.toString(), json.get(key).toString());
+        }
+
         this.tagName = json.getString("tagName");
         this.id = json.getString("id");
         this.parentUrl = json.getString("url");
@@ -52,6 +67,10 @@ public class ClientSideComponent {
         if (json.containsKey("formId")) {
             this.formId = json.getInt("formId");
         }
+    }
+
+    public Map<String, String> getData() {
+        return data;
     }
 
     public String getTypeForDisplay() {
@@ -74,45 +93,16 @@ public class ClientSideComponent {
         }
     }
 
-    public String getTagName() {
-        return tagName;
-    }
-
-    public String getId() {
-        return id;
-    }
-
-    public String getParentUrl() {
-        return parentUrl;
-    }
-
-    public String getHref() {
-        return href;
-    }
-
-    public String getText() {
-        return text;
-    }
-
-    public String getType() {
-        return type;
-    }
-
     public boolean isStorageEvent() {
+        if (type == null) {
+            return false;
+        }
         switch (type) {
             case "Cookies", "localStorage", "sessionStorage":
                 return true;
             default:
                 return false;
         }
-    }
-
-    public String getTagType() {
-        return tagType;
-    }
-
-    public int getFormId() {
-        return formId;
     }
 
     @Override

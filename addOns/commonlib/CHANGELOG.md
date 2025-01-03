@@ -5,8 +5,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
+### Added
+- Add solutions to Insufficient Process Validation vulnerability (Issue 8056).
+
 ### Changed
 - Update minimum ZAP version to 2.16.0.
+- Improve solution and add more references to 'Information Leakage' vulnerability (Issue 8056).
+
+## [1.29.0] - 2024-12-23
+### Changed
 - Dependency updates.
 - Let the Value Generator add-on provide the custom values through this add-on (Issue 8016).
 
@@ -192,6 +199,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 First version.
 
+[1.29.0]: https://github.com/zaproxy/zap-extensions/releases/commonlib-v1.29.0
 [1.28.0]: https://github.com/zaproxy/zap-extensions/releases/commonlib-v1.28.0
 [1.27.0]: https://github.com/zaproxy/zap-extensions/releases/commonlib-v1.27.0
 [1.26.0]: https://github.com/zaproxy/zap-extensions/releases/commonlib-v1.26.0

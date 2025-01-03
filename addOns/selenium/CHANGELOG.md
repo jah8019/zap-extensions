@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Unreleased
 ### Changed
 - Update minimum ZAP version to 2.16.0.
+
+## [15.31.0] - 2024-12-23
+### Changed
 - Update Selenium to version 4.27.0.
 - Use WebDriver BiDi with Firefox.
 
@@ -272,6 +275,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Updated to Selenium 2.45 and moved to release
 
+[15.31.0]: https://github.com/zaproxy/zap-extensions/releases/selenium-v15.31.0
 [15.30.0]: https://github.com/zaproxy/zap-extensions/releases/selenium-v15.30.0
 [15.29.0]: https://github.com/zaproxy/zap-extensions/releases/selenium-v15.29.0
 [15.28.0]: https://github.com/zaproxy/zap-extensions/releases/selenium-v15.28.0
