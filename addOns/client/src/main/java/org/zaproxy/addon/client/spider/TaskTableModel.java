@@ -20,13 +20,17 @@
 package org.zaproxy.addon.client.spider;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import javax.swing.table.AbstractTableModel;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
 import org.parosproxy.paros.Constant;
+import org.parosproxy.paros.view.View;
+import org.zaproxy.zap.utils.ThreadUtils;
 
 @SuppressWarnings("serial")
 public class TaskTableModel extends AbstractTableModel {
@@ -45,9 +49,11 @@ public class TaskTableModel extends AbstractTableModel {
     private static final int COLUMN_COUNT = COLUMN_NAMES.length;
 
     private List<TaskRecord> scanResults;
+    private Map<Integer, Integer> taskIdToRow;
 
     public TaskTableModel() {
         scanResults = new ArrayList<>();
+        taskIdToRow = new HashMap<>();
     }
 
     @Override
@@ -86,15 +92,28 @@ public class TaskTableModel extends AbstractTableModel {
         }
     }
 
+    private void withView(Runnable runnable) {
+        if (!View.isInitialised()) {
+            return;
+        }
+
+        ThreadUtils.invokeLater(runnable);
+    }
+
     public void removeAllElements() {
         scanResults.clear();
-        fireTableDataChanged();
+
+        withView(() -> fireTableDataChanged());
     }
 
     public void addTask(int id, String action, String uri, String details, String status) {
-        TaskRecord result = new TaskRecord(id, action, uri, details, "", status);
-        scanResults.add(result);
-        fireTableRowsInserted(scanResults.size() - 1, scanResults.size() - 1);
+        synchronized (taskIdToRow) {
+            int row = scanResults.size();
+            scanResults.add(new TaskRecord(id, action, uri, details, "", status));
+            taskIdToRow.put(id, row);
+
+            withView(() -> fireTableRowsInserted(row, row));
+        }
     }
 
     @Override
@@ -129,23 +148,11 @@ public class TaskTableModel extends AbstractTableModel {
     }
 
     public void updateTaskState(int id, String newState, String error) {
-        int id2 = id - 1;
-        TaskRecord action = this.scanResults.get(id2);
-        if (action.getId() > id) {
-            while (action.getId() > id) {
-                id2--;
-                action = this.scanResults.get(id2);
-            }
-        } else if (action.getId() < id) {
-            while (action.getId() < id) {
-                id2++;
-                action = this.scanResults.get(id2);
-            }
-        }
-        if (action.getId() == id) {
-            action.setStatus(newState);
-            action.setError(error);
-            this.fireTableCellUpdated(id2, 4);
-        }
+        int row = taskIdToRow.get(id);
+        TaskRecord action = this.scanResults.get(row);
+        action.setStatus(newState);
+        action.setError(error);
+
+        withView(() -> fireTableRowsUpdated(row, row));
     }
 }

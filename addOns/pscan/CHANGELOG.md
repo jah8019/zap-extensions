@@ -5,6 +5,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
+### Changed
+- Correct help configuration to work with any language.
+
+### Fixed
+- Fix broken link the help page.
+
+## [0.1.0] - 2025-01-10
 ### Added
 - Manage the passive scan related options and the scan rules (Issue 7959).
 - Add passive scanner (Issue 7959).
@@ -29,4 +36,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `passiveScan-wait`
 - Dynamically un/load add-on passive scan rules (Issue 7959).
 
+[0.1.0]: https://github.com/zaproxy/zap-extensions/releases/pscan-v0.1.0
 [0.0.1]: https://github.com/zaproxy/zap-extensions/releases/pscan-v0.0.1

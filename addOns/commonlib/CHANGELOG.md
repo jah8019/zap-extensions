@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 ### Added
+- Replace the default Output panel with a tabbed version to allow multiple sources of output to be displayed in separate tabs.
+
+## [1.30.0] - 2025-01-09
+### Added
 - Add solutions to Insufficient Process Validation vulnerability (Issue 8056).
 
 ### Changed
@@ -199,6 +203,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 First version.
 
+[1.30.0]: https://github.com/zaproxy/zap-extensions/releases/commonlib-v1.30.0
 [1.29.0]: https://github.com/zaproxy/zap-extensions/releases/commonlib-v1.29.0
 [1.28.0]: https://github.com/zaproxy/zap-extensions/releases/commonlib-v1.28.0
 [1.27.0]: https://github.com/zaproxy/zap-extensions/releases/commonlib-v1.27.0

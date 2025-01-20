@@ -60,6 +60,7 @@ import org.zaproxy.addon.client.ClientOptions;
 import org.zaproxy.addon.client.ExtensionClientIntegration;
 import org.zaproxy.addon.client.internal.ClientMap;
 import org.zaproxy.addon.client.internal.ClientNode;
+import org.zaproxy.addon.client.internal.ClientSideDetails;
 import org.zaproxy.addon.client.spider.actions.ClickElement;
 import org.zaproxy.addon.client.spider.actions.OpenUrl;
 import org.zaproxy.addon.client.spider.actions.SubmitForm;
@@ -78,6 +79,7 @@ import org.zaproxy.zap.model.GenericScanner2;
 import org.zaproxy.zap.model.ScanListenner2;
 import org.zaproxy.zap.network.HttpResponseBody;
 import org.zaproxy.zap.users.User;
+import org.zaproxy.zap.utils.Stats;
 import org.zaproxy.zap.utils.ThreadUtils;
 
 public class ClientSpider implements EventConsumer, GenericScanner2 {
@@ -88,7 +90,6 @@ public class ClientSpider implements EventConsumer, GenericScanner2 {
      *
      * TODO The following features will need to be implemented before the first release:
      * 		Support for modes
-     * 		Help pages
      *
      * The following features should be implemented in future releases:
      * 		Clicking on likely navigation elements
@@ -274,8 +275,12 @@ public class ClientSpider implements EventConsumer, GenericScanner2 {
     }
 
     private void getUnvisitedUrls(ClientNode node, List<String> urls) {
-        String nodeUrl = node.getUserObject().getUrl();
-        if (!node.isStorage() && !node.getUserObject().isVisited() && isUrlInScope(nodeUrl)) {
+        ClientSideDetails details = node.getUserObject();
+        String nodeUrl = details.getUrl();
+        if (!node.isStorage()
+                && !details.isVisited()
+                && !details.isContentLoaded()
+                && isUrlInScope(nodeUrl)) {
             urls.add(nodeUrl);
         }
         for (int i = 0; i < node.getChildCount(); i++) {
@@ -283,7 +288,7 @@ public class ClientSpider implements EventConsumer, GenericScanner2 {
         }
     }
 
-    public synchronized WebDriverProcess getWebDriverProcess() {
+    public WebDriverProcess getWebDriverProcess() {
         WebDriverProcess wdp;
         synchronized (this.webDriverPool) {
             if (!this.webDriverPool.isEmpty()) {
@@ -337,14 +342,15 @@ public class ClientSpider implements EventConsumer, GenericScanner2 {
         return null;
     }
 
-    private void executeTask(ClientSpiderTask task) {
+    private synchronized void executeTask(ClientSpiderTask task) {
         this.spiderTasks.add(task);
         this.threadPool.execute(task);
     }
 
     protected synchronized void postTaskExecution(ClientSpiderTask task) {
-        this.tasksDoneCount++;
-        this.spiderTasks.remove(task);
+        if (spiderTasks.remove(task)) {
+            tasksDoneCount++;
+        }
         if (listener != null) {
             listener.scanProgress(scanId, displayName, this.getProgress(), this.getMaximum());
         }
@@ -362,6 +368,7 @@ public class ClientSpider implements EventConsumer, GenericScanner2 {
         this.lastEventReceivedtime = System.currentTimeMillis();
         if (maxTime > 0 && this.lastEventReceivedtime > maxTime) {
             LOGGER.debug("Exceeded max time, stopping");
+            Stats.incCounter("stats.client.spider.event.max.time");
             this.stopScan();
             return;
         }
@@ -369,9 +376,11 @@ public class ClientSpider implements EventConsumer, GenericScanner2 {
         Map<String, String> parameters = event.getParameters();
         String url = parameters.get(ClientMap.URL_KEY);
         if (!isUrlInScope(url)) {
+            Stats.incCounter("stats.client.spider.event.scope.out");
             return;
         }
 
+        Stats.incCounter("stats.client.spider.event.scope.in");
         addUriToAddedNodesModel(url);
 
         if (options.getMaxDepth() > 0) {
@@ -379,6 +388,7 @@ public class ClientSpider implements EventConsumer, GenericScanner2 {
             if (depth > options.getMaxDepth()) {
                 LOGGER.debug(
                         "Ignoring URL - too deep {} > {} : {}", depth, options.getMaxDepth(), url);
+                Stats.incCounter("stats.client.spider.event.max.depth");
                 return;
             }
         }
@@ -390,12 +400,15 @@ public class ClientSpider implements EventConsumer, GenericScanner2 {
                         siblings,
                         options.getMaxChildren(),
                         url);
+                Stats.incCounter("stats.client.spider.event.max.children");
                 return;
             }
         }
 
         if (ClientMap.MAP_COMPONENT_ADDED_EVENT.equals(event.getEventType())) {
+            Stats.incCounter("stats.client.spider.event.component");
             if (ClickElement.isSupported(this::isUrlInScope, parameters)) {
+                Stats.incCounter("stats.client.spider.event.component.click");
                 addTask(
                         url,
                         openAction(
@@ -404,6 +417,7 @@ public class ClientSpider implements EventConsumer, GenericScanner2 {
                         Constant.messages.getString("client.spider.panel.table.action.click"),
                         paramsToString(parameters));
             } else if (SubmitForm.isSupported(parameters)) {
+                Stats.incCounter("stats.client.spider.event.component.form");
                 addTask(
                         url,
                         openAction(url, new SubmitForm(valueProvider, createUri(url), parameters)),
@@ -412,6 +426,7 @@ public class ClientSpider implements EventConsumer, GenericScanner2 {
                         paramsToString(parameters));
             }
         } else {
+            Stats.incCounter("stats.client.spider.event.url");
             addOpenUrlTask(url, options.getPageLoadTimeInSecs());
         }
     }
@@ -420,6 +435,11 @@ public class ClientSpider implements EventConsumer, GenericScanner2 {
         URI uri = createUri(url);
         if (uri == null) {
             return false;
+        }
+
+        char[] host = uri.getRawHost();
+        if (host == null) {
+            return true;
         }
 
         return checkResourceState(uri, new String(uri.getRawHost())) == ResourceState.ALLOWED;
@@ -485,22 +505,17 @@ public class ClientSpider implements EventConsumer, GenericScanner2 {
                 });
     }
 
-    public void taskStateChange(final ClientSpiderTask task) {
-        ThreadUtils.invokeLater(
-                () ->
-                        tasksModel.updateTaskState(
-                                task.getId(), task.getStatus().toString(), task.getError()));
+    void taskStateChange(final ClientSpiderTask task) {
+        tasksModel.updateTaskState(task.getId(), task.getStatus().toString(), task.getError());
     }
 
     private void addTaskToTasksModel(final ClientSpiderTask task, String url) {
-        ThreadUtils.invokeLater(
-                () ->
-                        tasksModel.addTask(
-                                task.getId(),
-                                task.getDisplayName(),
-                                url,
-                                task.getDetailsString(),
-                                task.getStatus().toString()));
+        tasksModel.addTask(
+                task.getId(),
+                task.getDisplayName(),
+                url,
+                task.getDetailsString(),
+                task.getStatus().toString());
     }
 
     protected void setRedirect(String originalUrl, String redirectedUrl) {
@@ -571,13 +586,42 @@ public class ClientSpider implements EventConsumer, GenericScanner2 {
                         .forEach(handler -> handler.disableAuthentication(user));
             }
         }
+
+        threadPool.shutdown();
+        try {
+            if (!threadPool.awaitTermination(
+                    Math.max(1, options.getPageLoadTimeInSecs()) * 2, TimeUnit.SECONDS)) {
+                LOGGER.warn("Failed to await for all tasks to stop in the expected time.");
+                for (Runnable task : this.threadPool.shutdownNow()) {
+                    ((ClientSpiderTask) task).cleanup();
+                }
+            }
+        } catch (InterruptedException ignore) {
+            Thread.currentThread().interrupt();
+            LOGGER.warn("Interrupted while awaiting for all tasks to stop.");
+        }
+
         synchronized (this.webDriverPool) {
             clear(webDriverPool);
             clear(webDriverActive);
         }
+
+        int contentLoaded = 0;
+        for (String url : crawledUrls) {
+            if (extClient.setContentLoaded(url)) {
+                contentLoaded++;
+            }
+        }
+
         if (listener != null) {
             listener.scanFinshed(scanId, displayName);
         }
+
+        Stats.incCounter("stats.client.spider.urls", crawledUrls.size());
+        Stats.incCounter(
+                "stats.client.spider.nodes", addedNodesModel.getRowCount() + contentLoaded);
+        Stats.incCounter("stats.client.spider.nodes.found", addedNodesModel.getRowCount());
+        Stats.incCounter("stats.client.spider.nodes.contentLoaded", contentLoaded);
     }
 
     private static void clear(Collection<WebDriverProcess> entries) {
@@ -841,21 +885,21 @@ public class ClientSpider implements EventConsumer, GenericScanner2 {
         }
 
         private void notifyMessage(HttpMessage httpMessage, int historyType, ResourceState state) {
-            ThreadUtils.invokeAndWaitHandled(
-                    () -> {
-                        try {
-                            HistoryReference historyRef =
-                                    new HistoryReference(session, historyType, httpMessage);
+            try {
+                HistoryReference historyRef =
+                        new HistoryReference(session, historyType, httpMessage);
+                ThreadUtils.invokeLater(
+                        () -> {
                             if (state == ResourceState.ALLOWED) {
                                 crawledUrl(httpMessage.getRequestHeader().getURI().toString());
                                 session.getSiteTree().addPath(historyRef, httpMessage);
                             }
 
                             messagesTableModel.addHistoryReference(historyRef, state);
-                        } catch (HttpMalformedHeaderException | DatabaseException e) {
-                            LOGGER.error(e);
-                        }
-                    });
+                        });
+            } catch (HttpMalformedHeaderException | DatabaseException e) {
+                LOGGER.error(e);
+            }
         }
     }
 

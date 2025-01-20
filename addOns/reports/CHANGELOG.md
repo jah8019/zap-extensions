@@ -4,6 +4,9 @@ All notable changes to this add-on will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## Unreleased
+
+
+## [0.35.0] - 2025-01-10
 ### Added
 - Stats counter to the main toolbar button (Issue 8375).
 - Sequence data to JSON & HTML reports.
@@ -12,6 +15,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Update minimum ZAP version to 2.16.0.
 - Update automation job help.
 - Fields with default or missing values are omitted for the `report` job in saved Automation Framework plans.
+
+### Fixed
+- Do not log an error when the statistics do not have a resource message (Issue 8788).
 
 ## [0.34.0] - 2024-10-07
 ### Changed
@@ -300,6 +306,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - First version.
 
+[0.35.0]: https://github.com/zaproxy/zap-extensions/releases/reports-v0.35.0
 [0.34.0]: https://github.com/zaproxy/zap-extensions/releases/reports-v0.34.0
 [0.33.0]: https://github.com/zaproxy/zap-extensions/releases/reports-v0.33.0
 [0.32.0]: https://github.com/zaproxy/zap-extensions/releases/reports-v0.32.0
